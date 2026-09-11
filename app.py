@@ -45,9 +45,11 @@ def receive_update():
             reply_text = response.choices[0].message.content
         except Exception as e:
             reply_text = "متاسفانه الان نمی‌تونم جواب بدم."
+            
         send_url = f"https://botapi.rubika.ir/v3/{RUBIKA_TOKEN}/sendMessage"
         payload = {"chat_id": chat_id, "text": reply_text}
         requests.post(send_url, json=payload)
+        
     return jsonify({"status": "ok"})
 
 if name == 'main':
