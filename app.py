@@ -19,7 +19,6 @@ def poll_updates():
     last_update_id = 0
     while True:
         try:
-            # از روبیکا می‌پرسیم پیام جدید داری؟
             url = f"https://botapi.rubika.ir/v3/{RUBIKA_TOKEN}/getUpdates"
             payload = {"offset": last_update_id}
             response = requests.post(url, json=payload).json()
@@ -32,21 +31,19 @@ def poll_updates():
                         chat_id = msg.get("chat_id")
                         text = msg.get("text")
                         if chat_id and text:
-                            # فرستادن به هوش مصنوعی
                             ai_res = client.chat.completions.create(
                                 model="deepseek-chat",
                                 messages=[{"role": "user", "content": text}]
                             )
                             reply = ai_res.choices[0].message.content
-                            # فرستادن جواب به روبیکا
                             requests.post(f"https://botapi.rubika.ir/v3/{RUBIKA_TOKEN}/sendMessage", json={"chat_id": chat_id, "text": reply})
         except Exception as e:
             print("Error:", e)
-        time.sleep(3) # هر ۳ ثانیه یه بار چک می‌کنه
+        time.sleep(3)
 
 @app.route('/')
 def home():
     return "Bot is running!"
 
-# این خط باعث میشه ربات در پس‌زمینه مدام چک کنه
+# این خط جادویی باعث میشه ربات خودش مدام از روبیکا بپرسه "پیام جدید داری؟"
 threading.Thread(target=poll_updates, daemon=True).start()
