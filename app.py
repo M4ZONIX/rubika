@@ -3,7 +3,8 @@ import requests
 from flask import Flask, request, jsonify
 from openai import OpenAI
 
-app = Flask(name)
+# به جای Flask(name) از یک اسم ساده استفاده می‌کنیم تا نیازی به آندرلاین نباشه
+app = Flask("RubikaBot")
 
 RUBIKA_TOKEN = os.environ.get("RUBIKA_TOKEN")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
@@ -52,5 +53,4 @@ def receive_update():
         
     return jsonify({"status": "ok"})
 
-if name == 'main':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+# خط آخر (if name == 'main') رو کلاً حذف کردیم چون توی رندر نیازی بهش نیست
