@@ -1,9 +1,10 @@
 import os
+import time
+import threading
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask
 from openai import OpenAI
 
-# به جای Flask(name) از یک اسم ساده استفاده می‌کنیم تا نیازی به آندرلاین نباشه
 app = Flask("RubikaBot")
 
 RUBIKA_TOKEN = os.environ.get("RUBIKA_TOKEN")
@@ -14,43 +15,38 @@ client = OpenAI(
     base_url="https://api.deepseek.com"
 )
 
-def get_text_and_chat(data):
-    chat_id = None
-    text = None
-    if 'message' in data:
-        msg = data['message']
-        chat_id = msg.get('chat_id')
-        text = msg.get('text')
-    elif 'update' in data:
-        update = data['update']
-        if update.get('type') == 'NewMessage':
-            chat_id = update.get('chat_id')
-            new_msg = update.get('new_message', {})
-            text = new_msg.get('text')
-    return chat_id, text
+def poll_updates():
+    last_update_id = 0
+    while True:
+        try:
+            # از روبیکا می‌پرسیم پیام جدید داری؟
+            url = f"https://botapi.rubika.ir/v3/{RUBIKA_TOKEN}/getUpdates"
+            payload = {"offset": last_update_id}
+            response = requests.post(url, json=payload).json()
+            
+            if response.get("status") == "ok" and response.get("result"):
+                for update in response["result"]:
+                    last_update_id = update["update_id"] + 1
+                    if "message" in update:
+                        msg = update["message"]
+                        chat_id = msg.get("chat_id")
+                        text = msg.get("text")
+                        if chat_id and text:
+                            # فرستادن به هوش مصنوعی
+                            ai_res = client.chat.completions.create(
+                                model="deepseek-chat",
+                                messages=[{"role": "user", "content": text}]
+                            )
+                            reply = ai_res.choices[0].message.content
+                            # فرستادن جواب به روبیکا
+                            requests.post(f"https://botapi.rubika.ir/v3/{RUBIKA_TOKEN}/sendMessage", json={"chat_id": chat_id, "text": reply})
+        except Exception as e:
+            print("Error:", e)
+        time.sleep(3) # هر ۳ ثانیه یه بار چک می‌کنه
 
 @app.route('/')
 def home():
     return "Bot is running!"
 
-@app.route('/receiveUpdate', methods=['POST'])
-def receive_update():
-    data = request.json
-    chat_id, text = get_text_and_chat(data)
-    if chat_id and text:
-        try:
-            response = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[{"role": "user", "content": text}]
-            )
-            reply_text = response.choices[0].message.content
-        except Exception as e:
-            reply_text = "متاسفانه الان نمی‌تونم جواب بدم."
-            
-        send_url = f"https://botapi.rubika.ir/v3/{RUBIKA_TOKEN}/sendMessage"
-        payload = {"chat_id": chat_id, "text": reply_text}
-        requests.post(send_url, json=payload)
-        
-    return jsonify({"status": "ok"})
-
-# خط آخر (if name == 'main') رو کلاً حذف کردیم چون توی رندر نیازی بهش نیست
+# این خط باعث میشه ربات در پس‌زمینه مدام چک کنه
+threading.Thread(target=poll_updates, daemon=True).start()
